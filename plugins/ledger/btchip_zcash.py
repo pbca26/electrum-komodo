@@ -87,9 +87,9 @@ class btchip_zcash(btchip):
             p2 = 0x80
         apdu = [ self.BTCHIP_CLA, self.BTCHIP_INS_HASH_INPUT_START, 0x00, p2 ]
         if overwintered and version == 3:
-            params = bytearray([version, 0x00, 0x00, 0x08, 0x70, 0x82, 0xc4, 0x03])
+            params = bytearray([version, 0x00, 0x00, 0x80, 0x70, 0x82, 0xc4, 0x03])
         elif overwintered and version == 4:
-            params = bytearray([version, 0x00, 0x00, 0x08, 0x85, 0x20, 0x2f, 0x89])
+            params = bytearray([version, 0x00, 0x00, 0x80, 0x85, 0x20, 0x2f, 0x89])
         else:
             params = bytearray([version, 0x00, 0x00, 0x00])
         writeVarint(len(outputList), params)
