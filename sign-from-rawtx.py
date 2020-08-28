@@ -12,6 +12,10 @@ jsontx = transaction.deserialize(kmd_unsigned_tx_serialized)
 inputs = jsontx.get('inputs')
 outputs = jsontx.get('outputs')
 locktime = jsontx.get('lockTime', 0)
+outputs_formatted = []
+
+for txout in outputs:
+  outputs_formatted.append([txout['type'], txout['address'], txout['value']])
 
 for txin in inputs:
   txin['type'] = txin_type
@@ -22,7 +26,7 @@ for txin in inputs:
   txin['address'] = bitcoin.address_from_private_key(wif)
   txin['value'] = 100000000 # required for preimage calc
 
-tx = Transaction.from_io(inputs, outputs, locktime=locktime)
+tx = Transaction.from_io(inputs, outputs_formatted, locktime=locktime)
 tx.sign({pubkey:(privkey, compressed)})
 
 print(tx.serialize())
