@@ -434,6 +434,9 @@ class TrezorPlugin(HW_PluginBase):
         d = deserialize(tx.raw)
         t.version = d['version']
         t.lock_time = d['lockTime']
+        t.version_group_id = d['versionGroupId']
+        # TODO: joinsplit extra_data
+        t.extra_data = '00000000000'
         inputs = self.tx_inputs(tx)
         t._extend_inputs(inputs)
         for vout in d['outputs']:
