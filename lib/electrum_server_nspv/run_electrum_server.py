@@ -22,7 +22,7 @@
 # SOFTWARE.
 
 import argparse
-import ConfigParser
+import configparser
 import logging
 import socket
 import sys
@@ -32,15 +32,16 @@ import json
 import os
 import imp
 import subprocess
+import platform
 
 if os.path.dirname(os.path.realpath(__file__)) == os.getcwd():
     imp.load_module('electrumserver', *imp.find_module('src'))
 
-from electrumserver import utils
-from electrumserver.processor import Dispatcher, print_log
-from electrumserver.server_processor import ServerProcessor
-from electrumserver.blockchain_processor import BlockchainProcessor
-from electrumserver.stratum_tcp import TcpServer
+from .src import utils
+from .src.processor import Dispatcher, print_log
+from .src.server_processor import ServerProcessor
+from .src.blockchain_processor import BlockchainProcessor
+from .src.stratum_tcp import TcpServer
 
 
 logging.basicConfig()
@@ -68,7 +69,7 @@ def load_banner(config):
         pass
 
 def create_config(filename=None):
-    config = ConfigParser.ConfigParser()
+    config = configparser.ConfigParser()
     # set some defaults, which will be overwritten by the config file
     config.add_section('server')
     config.set('server', 'banner', 'Welcome to Electrum!')
@@ -77,36 +78,17 @@ def create_config(filename=None):
     config.set('server', 'electrum_rpc_port', '8000')
     config.set('server', 'report_host', '')
     config.set('server', 'stratum_tcp_port', '50001')
-    config.set('server', 'stratum_tcp_ssl_port', '50002')
     config.set('server', 'report_stratum_tcp_port', '')
-    config.set('server', 'report_stratum_tcp_ssl_port', '')
-    config.set('server', 'ssl_certfile', '')
-    config.set('server', 'ssl_keyfile', '')
-    config.set('server', 'irc', 'no')
-    config.set('server', 'irc_nick', '')
     config.set('server', 'coin', '')
     config.set('server', 'donation_address', '')
     config.set('server', 'max_subscriptions', '10000')
-
-    config.add_section('leveldb')
-    config.set('leveldb', 'path', '/dev/shm/electrum_db')
-    config.set('leveldb', 'pruning_limit', '100')
-    config.set('leveldb', 'reorg_limit', '100')
-    config.set('leveldb', 'utxo_cache', str(64*1024*1024))
-    config.set('leveldb', 'hist_cache', str(128*1024*1024))
-    config.set('leveldb', 'addr_cache', str(16*1024*1024))
-    config.set('leveldb', 'profiler', 'no')
 
     # set network parameters
     config.add_section('network')
     config.set('network', 'type', 'bitcoin_main')
 
     # try to find the config file in the default paths
-    if not filename:
-        for path in (os.path.join(os.path.dirname(__file__)), ''):
-            filename = path + 'electrum.conf'
-            if os.path.isfile(filename):
-                break
+    filename = './nspv/electrum.conf'
 
     if not os.path.isfile(filename):
         print_log('could not find electrum configuration file "%s"' % filename)
@@ -121,8 +103,8 @@ def create_config(filename=None):
 
 def run_rpc_command(params, electrum_rpc_port):
     cmd = params[0]
-    import xmlrpclib
-    server = xmlrpclib.ServerProxy('http://localhost:%d' % electrum_rpc_port)
+    import xmlrpc.client
+    server = xmlrpc.client.ServerProxy('http://localhost:%d' % electrum_rpc_port)
     func = getattr(server, cmd)
     r = func(*params[1:])
     if cmd == 'sessions':
@@ -155,18 +137,17 @@ def cmd_getinfo():
         }
 
 def cmd_sessions():
-    return map(lambda s: {"time": s.time,
+    return [{"time": s.time,
                           "name": s.name,
                           "address": s.address,
                           "version": s.version,
-                          "subscriptions": len(s.subscriptions)},
-               dispatcher.request_dispatcher.get_sessions())
+                          "subscriptions": len(s.subscriptions)} for s in dispatcher.request_dispatcher.get_sessions()]
 
 def cmd_numsessions():
     return len(dispatcher.request_dispatcher.get_sessions())
 
 def cmd_peers():
-    return server_proc.peers.keys()
+    return list(server_proc.peers.keys())
 
 def cmd_numpeers():
     return len(server_proc.peers)
@@ -204,35 +185,20 @@ server_proc = None
 dispatcher = None
 transports = []
 tcp_server = None
-ssl_server = None
 
 def start_server(config):
     global shared, chain_proc, server_proc, dispatcher
-    global tcp_server, ssl_server
+    global tcp_server
 
     utils.init_logger()
     host = config.get('server', 'host')
     stratum_tcp_port = get_port(config, 'stratum_tcp_port')
-    stratum_tcp_ssl_port = get_port(config, 'stratum_tcp_ssl_port')
-    ssl_certfile = config.get('server', 'ssl_certfile')
-    ssl_keyfile = config.get('server', 'ssl_keyfile')
-
-    if ssl_certfile is '' or ssl_keyfile is '':
-        stratum_tcp_ssl_port = None
 
     print_log("Starting Electrum server on", host)
 
     # Create hub
     dispatcher = Dispatcher(config)
     shared = dispatcher.shared
-
-    # handle termination signals
-    import signal
-    def handler(signum = None, frame = None):
-        print_log('Signal handler called with signal', signum)
-        shared.stop()
-    for sig in [signal.SIGTERM, signal.SIGHUP, signal.SIGQUIT]:
-        signal.signal(sig, handler)
 
     # Create and register processors
     chain_proc = BlockchainProcessor(config, shared)
@@ -250,61 +216,34 @@ def start_server(config):
         server.start()
 
     # start nspv daemon
-    command = ["./bins/osx/nspv"]
+    if platform.system() == 'Darwin':
+        command = "./nspv/osx/nspv"
+    elif platform.system() == 'Linux':
+        command = "./nspv/linux/nspv"
+    elif platform.system() == 'Windows':
+        command = "./nspv/win/nspv"
     nspv = subprocess.Popen(command, shell=False, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
     if nspv.poll():
-        print_log("nspv not running")
+        print_log("NSPV not running")
     else:
-        print_log("nspv is running")
+        print_log("NSPV is running")
 
-def stop_server():
+def stop_nspv_server():
     shared.stop()
     server_proc.join()
     chain_proc.join()
     print_log("Electrum Server stopped")
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--conf', metavar='path', default=None, help='specify a configuration file')
-    parser.add_argument('command', nargs='*', default=[], help='send a command to the server')
-    args = parser.parse_args()
-    config = create_config(args.conf)
+def run_nspv_server():
+    config = create_config()
 
     electrum_rpc_port = get_port(config, 'electrum_rpc_port')
 
-    if len(args.command) >= 1:
-        try:
-            run_rpc_command(args.command, electrum_rpc_port)
-        except socket.error:
-            print_log("server not running")
-            sys.exit(1)
-        sys.exit(0)
-
-    try:
-        run_rpc_command(['getpid'], electrum_rpc_port)
-        is_running = True
-    except socket.error:
-        is_running = False
-
-    if is_running:
-        print_log("server already running")
-        sys.exit(1)
-
     start_server(config)
 
-    from SimpleXMLRPCServer import SimpleXMLRPCServer
+    from xmlrpc.server import SimpleXMLRPCServer
     server = SimpleXMLRPCServer(('localhost', electrum_rpc_port), allow_none=True, logRequests=True)
-    server.register_function(lambda: os.getpid(), 'getpid')
-    server.register_function(shared.stop, 'stop')
-    server.register_function(cmd_getinfo, 'getinfo')
-    server.register_function(cmd_sessions, 'sessions')
-    server.register_function(cmd_numsessions, 'numsessions')
-    server.register_function(cmd_peers, 'peers')
-    server.register_function(cmd_numpeers, 'numpeers')
-    server.register_function(cmd_debug, 'debug')
-    server.register_function(cmd_guppy, 'guppy')
-    server.register_function(cmd_banner_update, 'banner_update')
     server.socket.settimeout(1)
  
     while not shared.stopped():
@@ -313,4 +252,9 @@ if __name__ == '__main__':
         except socket.timeout:
             continue
         except:
-            stop_server()
+            stop_nspv_server()
+
+def start_nspv_server_thread():
+    t = threading.Thread(target = run_nspv_server)
+    t.daemon = True
+    t.start()
