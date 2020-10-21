@@ -34,6 +34,7 @@ from .jsonrpc import VerifyingJSONRPCServer
 
 from .version import ELECTRUM_VERSION
 from .network import Network
+from .network_nspv import Network_NSPV
 from .util import json_decode, DaemonThread
 from .util import print_error, to_string
 from .wallet import Wallet
@@ -41,7 +42,7 @@ from .storage import WalletStorage
 from .commands import known_commands, Commands
 from .simple_config import SimpleConfig
 from .exchange_rate import FxThread
-
+from .electrum_server_nspv.run_electrum_server import start_nspv_server_thread, stop_nspv_server
 
 def get_lockfile(config):
     return os.path.join(config.path, 'daemon')
@@ -124,7 +125,13 @@ class Daemon(DaemonThread):
         if config.get('offline'):
             self.network = None
         else:
-            self.network = Network(config)
+            if config.get('nspv') == True:
+                start_nspv_server_thread()
+                # TODO: await for process start
+                time.sleep(1)
+                self.network = Network_NSPV(config) 
+            else:
+                self.network = Network(config)
             self.network.start()
         self.fx = FxThread(config, self.network)
         if self.network:
@@ -207,6 +214,7 @@ class Daemon(DaemonThread):
                 response = "Daemon offline"
         elif sub == 'stop':
             self.stop()
+            stop_nspv_server()
             response = "Daemon stopped"
         return response
 
