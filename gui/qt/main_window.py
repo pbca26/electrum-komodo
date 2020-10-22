@@ -752,6 +752,9 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
                 if self.network.is_downloading_checkpoints == False and self.wallet.syncronizedPerc > 0 and self.wallet.syncronizedPerc < 100:
                     text += _(" |  Synced" ) + ": %.2f "%(self.wallet.syncronizedPerc) + "%"
 
+                if self.config.get('nspv') == True:
+                    text += _(" |  nSPV" )
+
                 if not self.network.proxy:
                     icon = QIcon(":icons/status_connected.png")
                 else:
@@ -2837,6 +2840,41 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         usechange_cb.stateChanged.connect(on_usechange)
         usechange_cb.setToolTip(_('Using change addresses makes it more difficult for other people to track your transactions.'))
         tx_widgets.append((usechange_cb, None))
+
+        fast_verify_val = self.config.get('fast_verify')
+        fast_verify_cb = QCheckBox(_('Use fast transaction verification (experimental)'))
+        fast_verify_cb.setChecked(fast_verify_val)
+        if not self.config.is_modifiable('fast_verify'): fast_verify_cb.setEnabled(False)
+        def on_fast_verify(x):
+            fast_verify_result = x == Qt.Checked
+            if fast_verify_val != fast_verify_result:
+                self.config.set_key('fast_verify', fast_verify_result)
+                multiple_cb.setEnabled(fast_verify_result)
+                if fast_verify_result == True:
+                    self.wallet.verifier.undo_verifications()
+            self.show_warning(_('Please restart Electrum-Komodo to activate the new GUI settings'), title=_('Success'))
+        fast_verify_cb.stateChanged.connect(on_fast_verify)
+        fast_verify_cb.setToolTip(_('Fast transactions verify method.'))
+        tx_widgets.append((fast_verify_cb, None))
+
+        # nspv start
+        nspv_val = self.config.get('nspv')
+        nspv_cb = QCheckBox(_('Use NSPV to sync transaction data (experimental)'))
+        nspv_cb.setChecked(nspv_val)
+        if not self.config.is_modifiable('nspv'): nspv_cb.setEnabled(False)
+        def on_nspv(x):
+            nspv_result = x == Qt.Checked
+            if nspv_val != nspv_result:
+                self.config.set_key('nspv', nspv_result)
+                self.config.set_key('fast_verify', nspv_result)
+                multiple_cb.setEnabled(nspv_result)
+                if nspv_result == True:
+                    self.wallet.verifier.undo_verifications()
+            self.show_warning(_('Please restart Electrum-Komodo to activate the new GUI settings'), title=_('Success'))
+        nspv_cb.stateChanged.connect(on_nspv)
+        nspv_cb.setToolTip(_('NSPV lib.'))
+        tx_widgets.append((nspv_cb, None))
+        # nspv end
 
         def on_multiple(x):
             multiple = x == Qt.Checked
