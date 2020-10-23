@@ -433,7 +433,6 @@ class Network(util.DaemonThread):
         self.print_error('starting network')
         self.disconnected_servers = set([])
         self.protocol = protocol
-        self.set_proxy(proxy)
         self.start_interfaces()
 
     def stop_network(self):
@@ -780,12 +779,13 @@ class Network(util.DaemonThread):
                     self.switch_to_interface(self.default_server)
 
     def request_chunk(self, interface, index):
-        if index in self.requested_chunks:
-            return
-        interface.print_error("requesting chunk %d" % index)
-        self.requested_chunks.add(index)
-        self.queue_request('blockchain.block.headers',
-                           [CHUNK_LEN*index, CHUNK_LEN], interface)
+        if self.config.get('fast_verify') == False or self.config.get('fast_verify') is None:
+            if index in self.requested_chunks:
+                return
+            interface.print_error("requesting chunk %d" % index)
+            self.requested_chunks.add(index)
+            self.queue_request('blockchain.block.headers',
+                            [CHUNK_LEN*index, CHUNK_LEN], interface)
 
     def on_get_chunk(self, interface, response, height):
         '''Handle receiving a chunk of block headers'''
@@ -1018,23 +1018,33 @@ class Network(util.DaemonThread):
             file_size = len(f.read())
             self.print_error('local checkpoints.json size:', file_size)
 
-        if not os.path.exists(filenameCP) or file_size < constants.net.CHECKPOINTS_MIN_FSIZE:
-            site = urllib.request.urlopen(constants.net.CHECKPOINTS_URL)
-            meta = site.info()
-            self.print_error('remote checkpoints.json size ', meta['Content-Length'])
+        if self.config.get('fast_verify') == False or self.config.get('fast_verify') is None:
+            if not os.path.exists(filenameCP) or file_size < constants.net.CHECKPOINTS_MIN_FSIZE:
+                site = urllib.request.urlopen(constants.net.CHECKPOINTS_URL)
+                meta = site.info()
+                print ('remote checkpoints.json size ', meta['Content-Length'])
 
-            self.print_error('checkpoints.json doesn\'t exist')
-            self.print_error('filename')
-            self.print_error(filenameCP)
-            
-            self.is_downloading_checkpoints = True
-            self.set_status('syncing') # downloading?
-            t = threading.Thread(target = self.download_thread(filenameCP))
-            t.daemon = True
-            t.start()
-        else:
-            b = self.blockchains[0]
-            filename = b.path()
+                print('checkpoints.json doesn\'t exist')
+                print('filename')
+                print(filenameCP)
+                self.is_downloading_checkpoints = True
+                self.set_status("syncing") # downloading?
+                t = threading.Thread(target = self.download_thread(filenameCP))
+                t.daemon = True
+                t.start()
+            else:
+                len_checkpoints = len(b.checkpoints)
+                length = HDR_LEN * len_checkpoints * CHUNK_LEN
+                if not os.path.exists(filename) or os.path.getsize(filename) < length:
+                    with open(filename, 'wb') as f:
+                        for i in range(len_checkpoints):
+                            for height, header_data in b.checkpoints[i][2]:
+                                f.seek(height*HDR_LEN)
+                                bin_header = bfh(header_data)
+                                f.write(bin_header)
+                with b.lock:
+                    b.update_size()
+        if self.config.get('fast_verify') == True:
             len_checkpoints = len(b.checkpoints)
             length = HDR_LEN * len_checkpoints * CHUNK_LEN
             if not os.path.exists(filename) or os.path.getsize(filename) < length:
@@ -1090,6 +1100,10 @@ class Network(util.DaemonThread):
 
     def on_notify_header(self, interface, header):
         height = header.get('height')
+        self.num_blocks = height
+        if self.config.get('fast_verify') == True:
+            self.notify('updated')
+            self.notify('interfaces')
         hex_header = header.get('hex')
         if not height or not hex_header:
             return
@@ -1171,7 +1185,10 @@ class Network(util.DaemonThread):
             self.set_parameters(host, port, protocol, proxy, auto_connect)
 
     def get_local_height(self):
-        return self.blockchain().height()
+        if self.config.get('fast_verify') == True:
+            return self.num_blocks
+        else:
+            return self.blockchain().height()
 
     def synchronous_get(self, request, timeout=30):
         q = queue.Queue()
