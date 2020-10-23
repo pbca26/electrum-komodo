@@ -601,11 +601,15 @@ class Abstract_Wallet(PrintError):
         label = ''
         height = conf = timestamp = None
         tx_hash = tx.txid()
-
         if tx.is_complete():
             if tx_hash in self.transactions.keys():
                 label = self.get_label(tx_hash)
                 height, conf, timestamp = self.get_tx_height(tx_hash)
+                if self.network.config.get('nspv') == True and len(self.network.nspv_transactions_cache) > 0 and self.network.nspv_transactions_cache[tx_hash] is not None:
+                    tx = self.transactions.get(tx_hash)
+                    conf = self.get_local_height() - self.network.nspv_transactions_cache[tx_hash]
+                    if tx.locktime > 0:
+                        timestamp = tx.locktime
                 if height > 0:
                     if conf:
                         status = _("{} confirmations").format(conf)
@@ -1060,6 +1064,10 @@ class Abstract_Wallet(PrintError):
         fiat_expenditures = Decimal(0)
         h = self.get_history(domain)
         for tx_hash, height, conf, timestamp, value, balance in h:
+            if self.network.config.get('nspv') == True and len(self.network.nspv_transactions_cache) > 0 and self.network.nspv_transactions_cache[tx_hash] is not None:
+                conf = self.get_local_height() - self.network.nspv_transactions_cache[tx_hash]
+                if conf < 0: # something went wrong
+                    conf = 0
             if from_timestamp and (timestamp or time.time()) < from_timestamp:
                 continue
             if to_timestamp and (timestamp or time.time()) >= to_timestamp:
@@ -1170,6 +1178,8 @@ class Abstract_Wallet(PrintError):
     def get_tx_status(self, tx_hash, height, conf, timestamp):
         from .util import format_time
         extra = []
+        if self.network.config.get('nspv') == True:
+            tx = self.transactions.get(tx_hash)
         if conf == 0:
             tx = self.transactions.get(tx_hash)
             if not tx:
@@ -1197,7 +1207,10 @@ class Abstract_Wallet(PrintError):
         else:
             status = 3 + min(conf, 6)
         time_str = format_time(timestamp) if timestamp else _("unknown")
-        status_str = TX_STATUS[status] if status < 4 else time_str
+        # temp solution for KMD
+        # requires a fix on NSPV API level to display tx timestamp
+        if self.network.config.get('nspv') == True and tx.locktime > 0:
+            status_str = format_time(tx.locktime) or _("n/a")
         if extra:
             status_str += ' [%s]'%(', '.join(extra))
         return status, status_str
@@ -1216,7 +1229,7 @@ class Abstract_Wallet(PrintError):
             _type, data, value = o
             if _type == TYPE_ADDRESS:
                 if not is_address(data):
-                    raise Exception("Invalid Zcash address: {}".format(data))
+                    raise Exception("Invalid Komodo address: {}".format(data))
             if value == '!':
                 if i_max is not None:
                     raise Exception("More than one output set to spend max")
