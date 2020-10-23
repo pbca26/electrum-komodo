@@ -26,6 +26,7 @@
 
 import os
 import threading
+import json
 
 from . import util
 from . import bitcoin
@@ -140,12 +141,15 @@ class Blockchain(util.PrintError):
         self.config = config
         self.catch_up = None # interface catching up
         self.checkpoint = checkpoint
-        try:
-            with open(os.path.join(util.get_headers_dir(self.config), 'checkpoints.json'), 'r') as f:
-                r = json.loads(f.read())
-        except:
-            r = constants.net.CHECKPOINTS
-        self.checkpoints = r
+        if self.config.get('fast_verify') == False or self.config.get('fast_verify') is None:
+            try:
+                with open(os.path.join(util.get_headers_dir(self.config), 'checkpoints.json'), 'r') as f:
+                    r = json.loads(f.read())
+            except:
+                r = []
+            self.checkpoints = r
+        else:
+            self.checkpoints = []
         self.parent_id = parent_id
         self.lock = threading.Lock()
         with self.lock:
@@ -189,7 +193,10 @@ class Blockchain(util.PrintError):
 
     def update_size(self):
         p = self.path()
-        self._size = os.path.getsize(p)//HDR_LEN if os.path.exists(p) else 0
+        if self.config.get('fast_verify') == False or self.config.get('fast_verify') is None:
+            self._size = os.path.getsize(p)//HDR_LEN if os.path.exists(p) else 0
+        else:
+            self._size = 0
 
     def verify_header(self, header, prev_hash, target):
         _hash = hash_header(header)
@@ -223,8 +230,12 @@ class Blockchain(util.PrintError):
             prev_hash = hash_header(header)
 
     def path(self):
+        filename = ''
         d = util.get_headers_dir(self.config)
-        filename = 'blockchain_headers' if self.parent_id is None else os.path.join('forks', 'fork_%d_%d'%(self.parent_id, self.checkpoint))
+        if self.config.get('fast_verify') == False or self.config.get('fast_verify') is None:
+            filename = 'blockchain_headers' if self.parent_id is None else os.path.join('forks', 'fork_%d_%d'%(self.parent_id, self.checkpoint))
+        if self.config.get('fast_verify') == True:
+            filename = 'blockchain_headers_fast'
         return os.path.join(d, filename)
 
     def save_chunk(self, index, chunk):
@@ -293,28 +304,31 @@ class Blockchain(util.PrintError):
         self.swap_with_parent()
 
     def read_header(self, height):
-        assert self.parent_id != self.checkpoint
-        if height < 0:
+        if self.config.get('fast_verify') == False  or self.config.get('fast_verify') is None:
+            assert self.parent_id != self.checkpoint
+            if height < 0:
+                return
+            if height < self.checkpoint:
+                return self.parent().read_header(height)
+            if height > self.height():
+                return
+            delta = height - self.checkpoint
+            name = self.path()
+            if os.path.exists(name):
+                with open(name, 'rb') as f:
+                    f.seek(delta * HDR_LEN)
+                    h = f.read(HDR_LEN)
+                    if len(h) < HDR_LEN:
+                        raise Exception('Expected to read a full header. This was only {} bytes'.format(len(h)))
+            elif not os.path.exists(util.get_headers_dir(self.config)):
+                raise Exception('Electrum datadir does not exist. Was it deleted while running?')
+            else:
+                raise Exception('Cannot find headers file but datadir is there. Should be at {}'.format(name))
+            if h == bytes([0])*HDR_LEN:
+                return None
+            return deserialize_header(h, height)
+        if self.config.get('fast_verify') == True:
             return
-        if height < self.checkpoint:
-            return self.parent().read_header(height)
-        if height > self.height():
-            return
-        delta = height - self.checkpoint
-        name = self.path()
-        if os.path.exists(name):
-            with open(name, 'rb') as f:
-                f.seek(delta * HDR_LEN)
-                h = f.read(HDR_LEN)
-                if len(h) < HDR_LEN:
-                    raise Exception('Expected to read a full header. This was only {} bytes'.format(len(h)))
-        elif not os.path.exists(util.get_headers_dir(self.config)):
-            raise Exception('Electrum datadir does not exist. Was it deleted while running?')
-        else:
-            raise Exception('Cannot find headers file but datadir is there. Should be at {}'.format(name))
-        if h == bytes([0])*HDR_LEN:
-            return None
-        return deserialize_header(h, height)
 
     def get_hash(self, height):
         if height > 0:
