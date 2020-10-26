@@ -97,6 +97,8 @@ class Synchronizer(ThreadJob):
             if self.requested_histories.get(addr) is None:
                 self.requested_histories[addr] = result
                 self.network.request_address_history(addr, self.on_address_history)
+                if self.network.config.get('nspv') == True:
+                    self.network.update_tip()
         # remove addr from list only after it is added to requested_histories
         if addr in self.requested_addrs:  # Notifications won't be in
             self.requested_addrs.remove(addr)
@@ -133,6 +135,15 @@ class Synchronizer(ThreadJob):
             # Request transactions we don't have
             self.request_missing_txs(hist)
         # Remove request; this allows up_to_date to be True
+        if self.network.config.get('nspv') == True:
+            for tx in hist:
+                self.network.nspv_transactions_cache[tx[0]] = tx[1]
+            print('tx history', hist)
+            print('tx history cache', self.network.nspv_transactions_cache)
+            # Store received history
+            self.wallet.receive_history_callback(addr, hist, tx_fees)
+            # Request transactions we don't have
+            self.request_missing_txs(hist)
         self.requested_histories.pop(addr)
 
     def tx_response(self, response):
