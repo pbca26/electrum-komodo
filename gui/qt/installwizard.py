@@ -559,6 +559,9 @@ class InstallWizard(QDialog, MessageBoxMixin, BaseWizard):
         else:
             network.auto_connect = True
             self.config.set_key('auto_connect', True, True)
+        
+        self.config.set_key('fast_verify', False, False)
+        self.config.set_key('multi_coin', False, False)
 
     @wizard_dialog
     def multisig_dialog(self, run_next):
