@@ -61,13 +61,13 @@ from . import bitcoin
 from . import coinchooser
 from .synchronizer import Synchronizer
 from .verifier import SPV
+from . import constants
 
 from . import paymentrequest
 from .paymentrequest import PR_PAID, PR_UNPAID, PR_UNKNOWN, PR_EXPIRED
 from .paymentrequest import InvoiceStore
 from .contacts import Contacts
 from .komodo_interest import calcInterest
-from electrum_zcash import constants
 
 TX_STATUS = [
     _('Unconfirmed'),
@@ -237,8 +237,6 @@ class Abstract_Wallet(PrintError):
 
         self.coin_price_cache = {}
 
-        self.syncronizedPerc = 0
-
     def diagnostic_name(self):
         return self.basename()
 
@@ -353,7 +351,7 @@ class Abstract_Wallet(PrintError):
         addrs = self.get_receiving_addresses()
         if len(addrs) > 0:
             if not bitcoin.is_address(addrs[0]):
-                raise WalletFileException('The addresses in this wallet are not Zcash addresses.')
+                raise WalletFileException('The addresses in this wallet are not Komodo addresses.')
 
     def synchronize(self):
         pass
@@ -665,9 +663,6 @@ class Abstract_Wallet(PrintError):
             tx_height, value, is_cb = v
             prevout_hash, prevout_n = txo.split(':')
             tx = self.transactions.get(prevout_hash)
-            # weird bug, locktime is not read correctly until inputs method is called
-            # go figure?
-            tx.inputs()
 
             x = {
                 'address':address,
@@ -693,10 +688,9 @@ class Abstract_Wallet(PrintError):
         local_height = self.get_local_height()
         
         # calc kmd interest
-        if constants.net.COIN == 'KMD':
-            utxos = self.get_addr_utxo(address)
-            for utxo in utxos:
-                interest += calcInterest(utxos[utxo]['locktime'], utxos[utxo]['value'], utxos[utxo]['height'])
+        utxos = self.get_addr_utxo(address)
+        for utxo in utxos:
+            interest += calcInterest(utxos[utxo]['locktime'], utxos[utxo]['value'], utxos[utxo]['height'], True)
         
         for txo, (tx_height, v, is_cb) in received.items():
             if is_cb and tx_height + COINBASE_MATURITY > local_height:
@@ -1196,6 +1190,7 @@ class Abstract_Wallet(PrintError):
                 status = 2
         else:
             status = 3 + min(conf, 6)
+
         time_str = format_time(timestamp) if timestamp else _("unknown")
         status_str = TX_STATUS[status] if status < 4 else time_str
         if extra:
@@ -1216,7 +1211,7 @@ class Abstract_Wallet(PrintError):
             _type, data, value = o
             if _type == TYPE_ADDRESS:
                 if not is_address(data):
-                    raise Exception("Invalid Zcash address: {}".format(data))
+                    raise Exception("Invalid Komodo address: {}".format(data))
             if value == '!':
                 if i_max is not None:
                     raise Exception("More than one output set to spend max")
@@ -1279,6 +1274,8 @@ class Abstract_Wallet(PrintError):
 
         # Sort the inputs and outputs deterministically
         tx.BIP_LI01_sort()
+        # Timelock tx to current height.
+        # tx.locktime = self.get_local_height()
         
         # run coinchooser to calc interest and boost vouts
         # set locktime for kmd
@@ -1286,8 +1283,7 @@ class Abstract_Wallet(PrintError):
         coin_chooser = coinchooser.get_coin_chooser(config)
         tx = coin_chooser.make_tx(inputs, outputs, change_addrs[:max_change],
                                     fee_estimator, self.dust_threshold())
-        if constants.net.COIN == 'KMD':
-            tx.locktime = math.floor(time.time()) - 777
+        tx.locktime = math.floor(time.time()) - 777
         
         run_hook('make_unsigned_transaction', self, tx)
         return tx
@@ -1322,6 +1318,8 @@ class Abstract_Wallet(PrintError):
     def start_threads(self, network):
         self.network = network
         if self.network is not None:
+            self.network.coin = constants.net.COIN
+            network.coin = constants.net.COIN
             self.verifier = SPV(self.network, self)
             self.synchronizer = Synchronizer(self, network)
             network.add_jobs([self.verifier, self.synchronizer])
@@ -1504,7 +1502,7 @@ class Abstract_Wallet(PrintError):
         if not r:
             return
         out = copy.copy(r)
-        out['URI'] = 'zcash:' + addr + '?amount=' + format_satoshis(out.get('amount'))
+        out['URI'] = 'komodo:' + addr + '?amount=' + format_satoshis(out.get('amount'))
         status, conf = self.get_request_status(addr)
         out['status'] = status
         if conf is not None:
@@ -1581,7 +1579,7 @@ class Abstract_Wallet(PrintError):
     def add_payment_request(self, req, config):
         addr = req['address']
         if not bitcoin.is_address(addr):
-            raise Exception(_('Invalid Zcash address.'))
+            raise Exception(_('Invalid Komodo address.'))
         if not self.is_mine(addr):
             raise Exception(_('Address not in wallet.'))
 
@@ -1830,6 +1828,18 @@ class Imported_Wallet(Simple_Wallet):
 
     def load_keystore(self):
         self.keystore = load_keystore(self.storage, 'keystore') if self.storage.get('keystore') else None
+        self.storage.put('coin', constants.net.COIN)
+        self.storage.put('verified_tx3', {})
+        self.storage.put('addr_history', {})
+        self.storage.put('transactions', {})
+        self.storage.put('txi', {})
+        self.storage.put('txo', {})
+        self.storage.put('tx_fees', {})
+        self.storage.put('stored_height', 0)
+        self.storage.write()
+        self.verified_tx = {}
+        self.unverified_tx = {}
+        self.history = {}
 
     def save_keystore(self):
         self.storage.put('keystore', self.keystore.dump())
