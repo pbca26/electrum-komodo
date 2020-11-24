@@ -17,6 +17,7 @@ from .seed_dialog import SeedLayout, KeysLayout
 from .network_dialog import NetworkChoiceLayout
 from .util import *
 from .password_dialog import PasswordLayout, PasswordLayoutForHW, PW_NEW
+from electrum_zcash.constants import net
 
 
 class GoBack(Exception):
@@ -146,6 +147,7 @@ class InstallWizard(QDialog, MessageBoxMixin, BaseWizard):
         self.show()
         self.raise_()
         self.refresh_gui()  # Need for QT on MacOSX.  Lame.
+        self.coin = None
 
     def run_and_get_wallet(self, get_wallet_from_daemon):
 
@@ -170,6 +172,38 @@ class InstallWizard(QDialog, MessageBoxMixin, BaseWizard):
         hbox2.addStretch()
         vbox.addLayout(hbox2)
         self.set_layout(vbox, title=_('Electrum-Komodo wallet'))
+
+        if self.config.get('multi_coin') == True:
+            coins = net.COINS
+            hbox3 = QHBoxLayout()
+            hbox3.addWidget(QLabel(_(' ')))
+            vbox.addLayout(hbox3)
+            
+            hbox4 = QHBoxLayout()
+            hbox4.addWidget(QLabel(_('Coin') + ':'))
+            msg = (_('Coin'))
+            #msg = (_('Base unit of your wallet.')
+            #       + '\n1 ' + constants.net.COIN + ' = 1000 m' + constants.net.COIN + '. 1 m' + constants.net.COIN + ' = 1000 u' + constants.net.COIN + '.\n'
+            #       + _('This setting affects the Send tab, and all balance related fields.'))
+            coin_combo = QComboBox()
+            coin_combo.addItems(coins)
+            coin_combo.setCurrentIndex(0)
+            coin_combo.setFixedWidth(150)
+            def onchange(x):
+                index = 0
+                for key, value in coins.items():
+                    if index == x:
+                        self.coin = value
+                        print(value)
+                        break
+                    index += 1
+                print(x)
+                #print(nz)
+                #self.coin = 
+            coin_combo.currentIndexChanged.connect(lambda x: onchange(x))
+            hbox4.addWidget(coin_combo)
+            hbox4.addStretch()
+            vbox.addLayout(hbox4)
 
         wallet_folder = os.path.dirname(self.storage.path)
 
@@ -308,6 +342,7 @@ class InstallWizard(QDialog, MessageBoxMixin, BaseWizard):
             self.run(action)
             return self.wallet
 
+        self.storage.put('coin', self.coin)
         self.wallet = Wallet(self.storage)
         return self.wallet
 
