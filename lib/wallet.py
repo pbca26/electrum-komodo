@@ -183,6 +183,7 @@ class Abstract_Wallet(PrintError):
     max_change_outputs = 3
 
     def __init__(self, storage):
+        print('wallet init', storage.get('coin'))
         self.electrum_version = ELECTRUM_VERSION
         self.storage = storage
         self.network = None
@@ -200,13 +201,17 @@ class Abstract_Wallet(PrintError):
         self.use_change            = storage.get('use_change', True)
         self.multiple_change       = storage.get('multiple_change', False)
         self.labels                = storage.get('labels', {})
-        self.frozen_addresses      = set(storage.get('frozen_addresses',[]))
-        self.history               = storage.get('addr_history',{})        # address -> list(txid, height)
+        self.frozen_addresses      = set(storage.get('frozen_addresses', []))
+        self.history               = storage.get('addr_history_' + (storage.get('coin') or constants.net.COIN), {}) # address -> list(txid, height)
         self.fiat_value            = storage.get('fiat_value', {})
         self.receive_requests      = storage.get('payment_requests', {})
 
         # Verified transactions.  Each value is a (height, timestamp, block_pos) tuple.  Access with self.lock.
         self.verified_tx = storage.get('verified_tx3', {})
+        
+        if len(self.verified_tx) == 0:
+            self.verified_tx = storage.get('verified_tx3_' + (storage.get('coin') or constants.net.COIN), {})
+        print('self.verified_tx', self.verified_tx)
 
         # Transactions pending verification.  A map from tx hash to transaction
         # height.  Access is not contended so no lock is needed.
@@ -248,11 +253,11 @@ class Abstract_Wallet(PrintError):
 
     @profiler
     def load_transactions(self):
-        self.txi = self.storage.get('txi', {})
-        self.txo = self.storage.get('txo', {})
-        self.tx_fees = self.storage.get('tx_fees', {})
-        self.pruned_txo = self.storage.get('pruned_txo', {})
-        tx_list = self.storage.get('transactions', {})
+        self.txi = self.storage.get('txi_' + (self.storage.get('coin') or constants.net.COIN), {})
+        self.txo = self.storage.get('txo_' + (self.storage.get('coin') or constants.net.COIN), {})
+        self.tx_fees = self.storage.get('tx_fees_' + (self.storage.get('coin') or constants.net.COIN), {})
+        self.pruned_txo = self.storage.get('pruned_txo_' + (self.storage.get('coin') or constants.net.COIN), {})
+        tx_list = self.storage.get('transactions_' + (self.storage.get('coin') or constants.net.COIN), {})
         self.transactions = {}
         for tx_hash, raw in tx_list.items():
             tx = Transaction(raw)
@@ -281,12 +286,12 @@ class Abstract_Wallet(PrintError):
             tx = {}
             for k,v in self.transactions.items():
                 tx[k] = str(v)
-            self.storage.put('transactions', tx)
-            self.storage.put('txi', self.txi)
-            self.storage.put('txo', self.txo)
-            self.storage.put('tx_fees', self.tx_fees)
-            self.storage.put('pruned_txo', self.pruned_txo)
-            self.storage.put('addr_history', self.history)
+            self.storage.put('transactions_' + (self.storage.get('coin') or constants.net.COIN), tx)
+            self.storage.put('txi_' + (self.storage.get('coin') or constants.net.COIN), self.txi)
+            self.storage.put('txo_' + (self.storage.get('coin') or constants.net.COIN), self.txo)
+            self.storage.put('tx_fees_' + (self.storage.get('coin') or constants.net.COIN), self.tx_fees)
+            self.storage.put('pruned_txo_' + (self.storage.get('coin') or constants.net.COIN), self.pruned_txo)
+            self.storage.put('addr_history_' + (self.storage.get('coin') or constants.net.COIN), self.history)
             if write:
                 self.storage.write()
 
@@ -688,9 +693,10 @@ class Abstract_Wallet(PrintError):
         local_height = self.get_local_height()
         
         # calc kmd interest
-        utxos = self.get_addr_utxo(address)
-        for utxo in utxos:
-            interest += calcInterest(utxos[utxo]['locktime'], utxos[utxo]['value'], utxos[utxo]['height'], True)
+        if (self.storage.get('coin') or constants.net.COIN) is 'KMD':
+            utxos = self.get_addr_utxo(address)
+            for utxo in utxos:
+                interest += calcInterest(utxos[utxo]['locktime'], utxos[utxo]['value'], utxos[utxo]['height'], True)
         
         for txo, (tx_height, v, is_cb) in received.items():
             if is_cb and tx_height + COINBASE_MATURITY > local_height:
@@ -1258,7 +1264,7 @@ class Abstract_Wallet(PrintError):
         if i_max is None:
             # Let the coin chooser select the coins to spend
             max_change = self.max_change_outputs if self.multiple_change else 1
-            coin_chooser = coinchooser.get_coin_chooser(config)
+            coin_chooser = coinchooser.get_coin_chooser(config, (self.storage.get('coin') or constants.net.COIN))
             tx = coin_chooser.make_tx(inputs, outputs, change_addrs[:max_change],
                                       fee_estimator, self.dust_threshold())
         else:
@@ -1280,7 +1286,7 @@ class Abstract_Wallet(PrintError):
         # run coinchooser to calc interest and boost vouts
         # set locktime for kmd
         max_change = self.max_change_outputs if self.multiple_change else 1
-        coin_chooser = coinchooser.get_coin_chooser(config)
+        coin_chooser = coinchooser.get_coin_chooser(config, (self.storage.get('coin') or constants.net.COIN))
         tx = coin_chooser.make_tx(inputs, outputs, change_addrs[:max_change],
                                     fee_estimator, self.dust_threshold())
         tx.locktime = math.floor(time.time()) - 777
@@ -1318,10 +1324,16 @@ class Abstract_Wallet(PrintError):
     def start_threads(self, network):
         self.network = network
         if self.network is not None:
-            self.network.coin = constants.net.COIN
-            network.coin = constants.net.COIN
+            self.network.stop_network()
+            self.network.coin = (self.storage.get('coin') or constants.net.COIN)
+            network.coin = (self.storage.get('coin') or constants.net.COIN)
+            #network.pick_random_server_on_init((self.storage.get('coin') or constants.net.COIN))
+            #network.default_server = network.pick_random_server_on_init((self.storage.get('coin') or constants.net.COIN))
+            self.network.start_network('t', None)
+            self.network.close_interface(network.interface)
+            self.network.switch_to_random_interface()
             self.verifier = SPV(self.network, self)
-            self.synchronizer = Synchronizer(self, network)
+            self.synchronizer = Synchronizer(self, self.network)
             network.add_jobs([self.verifier, self.synchronizer])
         else:
             self.verifier = None
@@ -1335,9 +1347,9 @@ class Abstract_Wallet(PrintError):
             self.verifier = None
             # Now no references to the synchronizer or verifier
             # remain so they will be GC-ed
-            self.storage.put('stored_height', self.get_local_height())
+            self.storage.put('stored_height_' + (self.storage.get('coin') or constants.net.COIN), self.get_local_height())
         self.save_transactions()
-        self.storage.put('verified_tx3', self.verified_tx)
+        self.storage.put('verified_tx3_' + (self.storage.get('coin') or constants.net.COIN), self.verified_tx)
         self.storage.write()
 
     def wait_until_synchronized(self, callback=None):
@@ -1828,7 +1840,6 @@ class Imported_Wallet(Simple_Wallet):
 
     def load_keystore(self):
         self.keystore = load_keystore(self.storage, 'keystore') if self.storage.get('keystore') else None
-        self.storage.put('coin', constants.net.COIN)
         self.storage.put('verified_tx3', {})
         self.storage.put('addr_history', {})
         self.storage.put('transactions', {})
@@ -1837,9 +1848,6 @@ class Imported_Wallet(Simple_Wallet):
         self.storage.put('tx_fees', {})
         self.storage.put('stored_height', 0)
         self.storage.write()
-        self.verified_tx = {}
-        self.unverified_tx = {}
-        self.history = {}
 
     def save_keystore(self):
         self.storage.put('keystore', self.keystore.dump())
