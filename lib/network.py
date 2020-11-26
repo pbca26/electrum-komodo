@@ -49,7 +49,6 @@ from .i18n import _
 NODES_RETRY_INTERVAL = 60
 SERVER_RETRY_INTERVAL = 10
 
-
 def parse_servers(result):
     """ parse servers list into dict format"""
     from .version import PROTOCOL_VERSION
@@ -98,6 +97,11 @@ def filter_protocol(hostmap, protocol = 't'):
 def pick_random_server(hostmap = None, protocol = 't', exclude_set = set()):
     if hostmap is None:
         hostmap = constants.net.DEFAULT_SERVERS[constants.net.COIN]
+    eligible = list(set(filter_protocol(hostmap, protocol)) - exclude_set)
+    return random.choice(eligible) if eligible else None
+
+def pick_random_server_init(coin, protocol = 't', exclude_set = set()):
+    hostmap = constants.net.DEFAULT_SERVERS[coin]
     eligible = list(set(filter_protocol(hostmap, protocol)) - exclude_set)
     return random.choice(eligible) if eligible else None
 
@@ -165,7 +169,7 @@ class Network(util.DaemonThread):
           is_connected(), set_parameters(), stop()
     """
 
-    def __init__(self, config=None):
+    def __init__(self, config=None, coin=None):
         if config is None:
             config = {}  # Do not use mutables as default values!
         util.DaemonThread.__init__(self)
@@ -186,7 +190,7 @@ class Network(util.DaemonThread):
                 self.print_error('Warning: failed to parse server-string; falling back to random.')
                 self.default_server = None
         if not self.default_server:
-            self.default_server = pick_random_server()
+            self.default_server = pick_random_server_init(coin)
         self.lock = threading.Lock()
         self.pending_sends = []
         self.message_id = 0
@@ -203,7 +207,7 @@ class Network(util.DaemonThread):
         # callbacks set by the GUI
         self.callbacks = defaultdict(list)
 
-        dir_path = os.path.join( self.config.path, 'certs')
+        dir_path = os.path.join(self.config.path, 'certs')
         if not os.path.exists(dir_path):
             os.mkdir(dir_path)
             os.chmod(dir_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
@@ -231,7 +235,18 @@ class Network(util.DaemonThread):
         self.downloaded_checkpoints_perc = 0
         self.restart_required = False
         self.num_blocks = -1
-        self.coin = None
+        self.coin = coin
+
+    def pick_random_server(self, hostmap = None, protocol = 't', exclude_set = set()):
+        if hostmap is None:
+            hostmap = constants.net.DEFAULT_SERVERS[self.coin or constants.net.COIN]
+        eligible = list(set(filter_protocol(hostmap, protocol)) - exclude_set)
+        return random.choice(eligible) if eligible else None
+
+    def pick_random_server_on_init(self, coin, protocol = 't', exclude_set = set()):
+        hostmap = constants.net.DEFAULT_SERVERS[coin]
+        eligible = list(set(filter_protocol(hostmap, protocol)) - exclude_set)
+        return random.choice(eligible) if eligible else None
 
     def register_callback(self, callback, events):
         with self.lock:
@@ -405,7 +420,7 @@ class Network(util.DaemonThread):
 
     def start_random_interface(self):
         exclude_set = self.disconnected_servers.union(set(self.interfaces))
-        server = pick_random_server(self.get_servers(), self.protocol, exclude_set)
+        server = self.pick_random_server(self.get_servers(), self.protocol, exclude_set)
         if server:
             self.start_interface(server)
 
@@ -436,12 +451,14 @@ class Network(util.DaemonThread):
             socket.socket = socket._socketobject
             socket.getaddrinfo = socket._getaddrinfo
 
-    def start_network(self, protocol, proxy):
+    def start_network(self, protocol, proxy, coin=None):
         assert not self.interface and not self.interfaces
         assert not self.connecting and self.socket_queue.empty()
         self.print_error('starting network')
         self.disconnected_servers = set([])
         self.protocol = protocol
+        if coin is not None:
+            self.coin = coin
         self.set_proxy(proxy)
         self.start_interfaces()
 
@@ -493,7 +510,7 @@ class Network(util.DaemonThread):
             servers.remove(self.default_server)
             
             if self.config.get('multi_coin') == True:
-                server = pick_random_server(self.get_servers(), self.protocol)
+                server = self.pick_random_server(self.get_servers(), self.protocol)
                 self.switch_to_interface(server)
         if servers:
             self.switch_to_interface(random.choice(servers))
@@ -1097,6 +1114,10 @@ class Network(util.DaemonThread):
 
     def on_notify_header(self, interface, header):
         height = header.get('height')
+        self.num_blocks = height
+        if self.config.get('fast_verify') == True:
+            self.notify('updated')
+            self.notify('interfaces')
         hex_header = header.get('hex')
         if not height or not hex_header:
             return
@@ -1137,8 +1158,6 @@ class Network(util.DaemonThread):
             self.request_header(interface, min(tip +1, height - 1))
         else:
             chain = self.blockchains[0]
-            self.num_blocks = height
-
             if chain.catch_up is None:
                 chain.catch_up = interface
                 interface.mode = 'catch_up'

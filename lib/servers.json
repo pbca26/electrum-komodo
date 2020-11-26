@@ -1,12 +1,412 @@
 {
-    "electrum1.cipig.net": 
-    {
-        "t":"10001",
-        "version": "1.4"
+    "KMD": {
+        "electrum1.cipig.net": 
+        {
+            "t":"10001",
+            "version": "1.4"
+        },
+        "electrum2.cipig.net": 
+        {
+            "t":"10001",
+            "version": "1.4"
+        }
     },
-    "electrum2.cipig.net": 
-    {
-        "t":"10001",
-        "version": "1.4"
+    "SUPERNET": {
+        "electrum1.cipig.net": {
+            "t": "10005"
+        },
+        "electrum2.cipig.net": {
+            "t": "10005"
+        }
+    },
+    "REVS": {
+        "electrum1.cipig.net": {
+            "t": "10003"
+        },
+        "electrum2.cipig.net": {
+            "t": "10003"
+        }
+    },
+    "PANGEA": {
+        "electrum1.cipig.net": {
+            "t": "10010"
+        },
+        "electrum2.cipig.net": {
+            "t": "10010"
+        }
+    },
+    "PGT": {
+        "agama.komodo.build": {
+            "t": "10002"
+        },
+        "agama2.komodo.build": {
+            "t": "10002"
+        }
+    },
+    "DEX": {
+        "electrum1.cipig.net": {
+            "t": "10006"
+        },
+        "electrum2.cipig.net": {
+            "t": "10006"
+        }
+    },
+    "JUMBLR": {
+        "electrum1.cipig.net": {
+            "t": "10004"
+        },
+        "electrum2.cipig.net": {
+            "t": "10004"
+        }
+    },
+    "BET": {
+        "electrum1.cipig.net": {
+            "t": "10012"
+        },
+        "electrum2.cipig.net": {
+            "t": "10012"
+        }
+    },
+    "CRYPTO": {
+        "electrum1.cipig.net": {
+            "t": "10008"
+        },
+        "electrum2.cipig.net": {
+            "t": "10008"
+        }
+    },
+    "K64": {
+        "electrum1.komodore64.com": {
+            "t": "21245"
+        },
+        "electrum2.komodore64.com": {
+            "t": "21245"
+        }
+    },
+    "COQUI": {
+        "electrum1.cipig.net": {
+            "t": "10011"
+        },
+        "electrum2.cipig.net": {
+            "t": "10011"
+        }
+    },
+    "HODL": {
+        "electrum1.cipig.net": {
+            "t": "10009"
+        },
+        "electrum2.cipig.net": {
+            "t": "10009"
+        }
+    },
+    "ILN": {
+        "electrum1.ilien.io": {
+            "t": "65011"
+        },
+        "electrum2.ilien.io": {
+            "t": "65011"
+        }
+    },
+    "MSHARK": {
+        "electrum1.cipig.net": {
+            "t": "10013"
+        },
+        "electrum2.cipig.net": {
+            "t": "10013"
+        }
+    },
+    "BOTS": {
+        "electrum1.cipig.net": {
+            "t": "10007"
+        },
+        "electrum2.cipig.net": {
+            "t": "10007"
+        }
+    },
+    "MGW": {
+        "electrum1.cipig.net": {
+            "t": "10015"
+        },
+        "electrum2.cipig.net": {
+            "t": "10015"
+        }
+    },
+    "KV": {
+        "electrum1.cipig.net": {
+            "t": "10016"
+        },
+        "electrum2.cipig.net": {
+            "t": "10016"
+        }
+    },
+    "WLC": {
+        "electrum1.cipig.net": {
+            "t": "10014"
+        },
+        "electrum2.cipig.net": {
+            "t": "10014"
+        }
+    },
+    "BTCH": {
+        "electrum1.cipig.net": {
+            "t": "10020"
+        },
+        "electrum2.cipig.net": {
+            "t": "10020"
+        }
+    },
+    "BEER": {
+        "electrum1.cipig.net": {
+            "t": "10022"
+        },
+        "electrum2.cipig.net": {
+            "t": "10022"
+        }
+    },
+    "PIZZA": {
+        "electrum1.cipig.net": {
+            "t": "10024"
+        },
+        "electrum2.cipig.net": {
+            "t": "10024"
+        }
+    },
+    "OOT": {
+        "electrum1.utrum.io": {
+            "t": "10088"
+        },
+        "electrum2.utrum.io": {
+            "t": "10088"
+        }
+    },
+    "NINJA": {
+        "electrum1.fund.ninja": {
+            "t": "50001"
+        },
+        "electrum2.fund.ninja": {
+            "t": "50001"
+        }
+    },
+    "GLXT": {
+        "electrum1.glx.co": {
+            "t": "60012"
+        },
+        "electrum2.glx.co": {
+            "t": "60012"
+        }
+    },
+    "EQL": {
+        "159.65.91.235": {
+            "t": "10801"
+        },
+        "167.99.204.42": {
+            "t": "10801"
+        }
+    },
+    "BNTN": {
+        "electrum1.cipig.net": {
+            "t": "10026"
+        },
+        "electrum2.cipig.net": {
+            "t": "10026"
+        }
+    },
+    "PRLPAY": {
+        "electrum1.prlpay.com": {
+            "t": "9681"
+        },
+        "electrum2.prlpay.com": {
+            "t": "9681"
+        }
+    },
+    "CHAIN": {
+        "electrum1.cipig.net": {
+            "t": "10032"
+        },
+        "electrum2.cipig.net": {
+            "t": "10032"
+        },
+        "electrum3.cipig.net": {
+            "t": "10032"
+        }
+    },
+    "ZILLA": {
+        "electrum1.cipig.net": {
+            "t": "10028"
+        },
+        "electrum2.cipig.net": {
+            "t": "10028"
+        }
+    },
+    "VRSC": {
+        "el0.vrsc.0x03.services": {
+            "t": "10000"
+        },
+        "el1.vrsc.0x03.services": {
+            "t": "10000"
+        }
+    },
+    "MGNX": {
+        "45.76.37.100": {
+            "t": "50001"
+        },
+        "95.179.177.253": {
+            "t": "50001"
+        }
+    },
+    "CCL": {
+        "electrum1.cipig.net": {
+            "t": "10029"
+        },
+        "electrum2.cipig.net": {
+            "t": "10029"
+        },
+        "electrum3.cipig.net": {
+            "t": "10029"
+        }
+    },
+    "KOIN": {
+        "dalian.koinon.cloud": {
+            "t": "50001"
+        },
+        "sumba.koinon.cloud": {
+            "t": "50001"
+        }
+    },
+    "DION": {
+        "electrum1.cipig.net": {
+            "t": "10030"
+        },
+        "electrum2.cipig.net": {
+            "t": "10030"
+        },
+        "electrum3.cipig.net": {
+            "t": "10030"
+        }
+    },
+    "KMDICE": {
+        "electrum1.cipig.net": {
+            "t": "10031"
+        },
+        "electrum2.cipig.net": {
+            "t": "10031"
+        },
+        "electrum3.cipig.net": {
+            "t": "10031"
+        }
+    },
+    "PTX": {
+        "electrum1.patenttx.com": {
+            "t": "18081"
+        },
+        "electrum2.patenttx.com": {
+            "t": "18081"
+        }
+    },
+    "ZEX": {
+        "electrum1.cipig.net": {
+            "t": "10035"
+        },
+        "electrum2.cipig.net": {
+            "t": "10035"
+        },
+        "electrum3.cipig.net": {
+            "t": "10035"
+        }
+    },
+    "LUMBER": {
+        "electrum1.lumberscout.io": {
+            "t": "10001"
+        }
+    },
+    "KSB": {
+        "51.158.74.137": {
+            "t": "50001"
+        },
+        "electrum.komodochainz.info": {
+            "t": "50041"
+        }
+    },
+    "OUR": {
+        "51.158.74.137": {
+            "t": "50002"
+        },
+        "electrum.komodochainz.info": {
+            "t": "50042"
+        }
+    },
+    "RICK": {
+        "electrum1.cipig.net": {
+            "t": "10017"
+        },
+        "electrum2.cipig.net": {
+            "t": "10017"
+        },
+        "electrum3.cipig.net": {
+            "t": "10017"
+        }
+    },
+    "MORTY": {
+        "electrum1.cipig.net": {
+            "t": "10018"
+        },
+        "electrum2.cipig.net": {
+            "t": "10018"
+        },
+        "electrum3.cipig.net": {
+            "t": "10018"
+        }
+    },
+    "VOTE2019": {
+        "electrum1.cipig.net": {
+            "t": "10036"
+        },
+        "electrum2.cipig.net": {
+            "t": "10036"
+        },
+        "electrum3.cipig.net": {
+            "t": "10036"
+        }
+    },
+    "RFOX": {
+        "electrum1.cipig.net": {
+            "t": "10034"
+        },
+        "electrum2.cipig.net": {
+            "t": "10034"
+        },
+        "electrum3.cipig.net": {
+            "t": "10034"
+        }
+    },
+    "HUSH": {
+        "electrum1.cipig.net": {
+            "t": "10064"
+        },
+        "electrum2.cipig.net": {
+            "t": "10064"
+        }
+    },
+    "ZEXO": {
+        "electrum1.cipig.net": {
+            "t": "10035"
+        },
+        "electrum2.cipig.net": {
+            "t": "10035"
+        },
+        "electrum3.cipig.net": {
+            "t": "10035"
+        }
+    },
+    "LABS": {
+        "electrum1.cipig.net": {
+            "t": "10019"
+        },
+        "electrum2.cipig.net": {
+            "t": "10019"
+        },
+        "electrum3.cipig.net": {
+            "t": "10019"
+        }
     }
 }
