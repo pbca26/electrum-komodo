@@ -31,7 +31,7 @@ import threading
 import hmac
 
 from .i18n import _
-from electrum_zcash import constants
+from . import constants
 
 import urllib.request, urllib.parse, urllib.error
 import queue
@@ -40,7 +40,7 @@ def inv_dict(d):
     return {v: k for k, v in d.items()}
 
 
-base_units = {constants.net.COIN:8, 'm'+constants.net.COIN:5, 'u'+constants.net.COIN:2}
+base_units = {constants.net.COIN: 8, 'm' + constants.net.COIN: 5, 'u' + constants.net.COIN: 2}
 
 def normalize_version(v):
     return [int(x) for x in re.sub(r'(\.0+)*$','', v).split(".")]
@@ -402,7 +402,7 @@ def user_dir():
     if 'ANDROID_DATA' in os.environ:
         return android_check_data_dir()
     elif os.name == 'posix':
-        return os.path.join(os.environ["HOME"], ".electrum-komodo")
+        return os.path.join(os.environ["HOME"], ".electrum-rick")
     elif "APPDATA" in os.environ:
         return os.path.join(os.environ["APPDATA"], "Electrum-Komodo")
     elif "LOCALAPPDATA" in os.environ:
@@ -505,10 +505,8 @@ def time_difference(distance_in_time, include_seconds):
         return "over %d years" % (round(distance_in_minutes / 525600))
 
 mainnet_block_explorers = {
-    'blockexplorer.com': ('https://kmdexplorer.io/',
-                        {'tx': 'tx/', 'addr': 'address/'}),
-    'system default': ('blockchain:/',
-                        {'tx': 'tx/', 'addr': 'address/'}),
+    'explorer': ('https://kmdexplorer.io/',
+                        {'tx': 'tx/', 'addr': 'address/'})
 }
 
 testnet_block_explorers = {
@@ -528,14 +526,17 @@ def block_explorer(config):
 def block_explorer_tuple(config):
     return block_explorer_info().get(block_explorer(config))
 
-def block_explorer_URL(config, kind, item):
+def block_explorer_URL(config, kind, item, coin=None):
     be_tuple = block_explorer_tuple(config)
     if not be_tuple:
         return
     kind_str = be_tuple[1].get(kind)
     if not kind_str:
         return
-    url_parts = [be_tuple[0], kind_str, item]
+    if coin is not None:
+        url_parts = [constants.net.EXPLORERS[coin] + '/', kind_str, item]
+    else:
+        url_parts = [be_tuple[0], kind_str, item]
     return ''.join(url_parts)
 
 # URL decode
@@ -666,7 +667,7 @@ class SocketPipe:
         self.recv_time = time.time()
 
     def set_timeout(self, t):
-        self.socket.settimeout(0.2)
+        self.socket.settimeout(t)
 
     def idle_time(self):
         return time.time() - self.recv_time
@@ -726,7 +727,7 @@ class QueuePipe:
     def __init__(self, send_queue=None, get_queue=None):
         self.send_queue = send_queue if send_queue else queue.Queue()
         self.get_queue = get_queue if get_queue else queue.Queue()
-        self.set_timeout(0.2)
+        self.set_timeout(0.1)
 
     def get(self):
         try:
@@ -745,7 +746,7 @@ class QueuePipe:
         return responses
 
     def set_timeout(self, t):
-        self.timeout = 0.2
+        self.timeout = t
 
     def send(self, request):
         self.send_queue.put(request)
