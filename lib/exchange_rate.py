@@ -13,7 +13,8 @@ from decimal import Decimal
 from .bitcoin import COIN
 from .i18n import _
 from .util import PrintError, ThreadJob
-from electrum_zcash import constants
+from . import constants
+
 
 # See https://en.wikipedia.org/wiki/ISO_4217
 CCY_PRECISIONS = {'BHD': 3, 'BIF': 0, 'BYR': 0, 'CLF': 4, 'CLP': 0,
@@ -53,17 +54,17 @@ class ExchangeBase(PrintError):
     def name(self):
         return self.__class__.__name__
 
-    def update_safe(self, ccy):
+    def update_safe(self, ccy, coin=None):
         try:
             self.print_error("getting fx quotes for", ccy)
-            self.quotes = self.get_rates(ccy)
+            self.quotes = self.get_rates(ccy, coin)
             self.print_error("received fx quotes")
         except BaseException as e:
             self.print_error("failed fx quotes:", e)
         self.on_quotes()
 
-    def update(self, ccy):
-        t = Thread(target=self.update_safe, args=(ccy,))
+    def update(self, ccy, coin=None):
+        t = Thread(target=self.update_safe, args=(ccy,coin))
         t.setDaemon(True)
         t.start()
 
@@ -174,11 +175,14 @@ class CoinMarketCap(ExchangeBase):
         return quote_currencies
 
 class AtomicExplorer(ExchangeBase):
-    def get_rates(self, ccy):
-        json = self.get_json('atomicexplorer.com', '/api/mm/prices/v2?coins=' + constants.net.COIN + '&currency=' + ccy)
+    def get_rates(self, ccy, coin=None):
+        print(coin)
+        print('atomicexplorer.com', '/api/mm/prices/v2?coins=' + (coin or constants.net.COIN) + '&currency=' + ccy)
+        json = self.get_json('atomicexplorer.com', '/api/mm/prices/v2?coins=' + (coin or constants.net.COIN) + '&currency=' + ccy)
+        print(json)
         quote_currencies = {}
-        coin_ticker = json.get('result').get(constants.net.COIN).get(ccy)
-        quote_currencies[ccy] = Decimal(coin_ticker)
+        kmd_ticker = json.get('result').get(coin or constants.net.COIN).get(ccy)
+        quote_currencies[ccy] = Decimal(kmd_ticker)
         return quote_currencies
 
 
@@ -269,7 +273,7 @@ class FxThread(ThreadJob):
                 self.exchange.get_historical_rates(self.ccy, self.cache_dir)
             if self.timeout <= time.time():
                 self.timeout = time.time() + 150
-                self.exchange.update(self.ccy)
+                self.exchange.update(self.ccy, self.network.coin)
 
     def is_enabled(self):
         return bool(self.config.get('use_exchange_rate'))
