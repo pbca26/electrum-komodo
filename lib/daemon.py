@@ -121,14 +121,16 @@ class Daemon(DaemonThread):
     def __init__(self, config, fd, is_gui):
         DaemonThread.__init__(self)
         self.config = config
-        if config.get('offline'):
-            self.network = None
-        else:
-            self.network = Network(config)
-            self.network.start()
-        self.fx = FxThread(config, self.network)
-        if self.network:
-            self.network.add_jobs([self.fx])
+        self.network = None
+        self.fx = None
+        #if config.get('offline'):
+        #    self.network = None
+        #else:
+        #    self.network = Network(config)
+        #    self.network.start()
+        #self.fx = FxThread(config, self.network)
+        #if self.network:
+        #    self.network.add_jobs([self.fx])
         self.gui = None
         self.wallets = {}
         # Setup JSONRPC server
@@ -163,6 +165,14 @@ class Daemon(DaemonThread):
 
     def ping(self):
         return True
+
+    def start_await(self, coin):
+        print('start_await')
+        print(self.config)
+        self.network = Network(self.config, coin)
+        self.network.start()
+        self.fx = FxThread(self.config, self.network)
+        self.network.add_jobs([self.fx])
 
     def run_daemon(self, config_options):
         config = SimpleConfig(config_options)
