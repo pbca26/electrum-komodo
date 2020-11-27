@@ -35,7 +35,7 @@ from .util import *
 class AddressList(MyTreeWidget):
     filter_columns = [0, 1, 2, 3]  # Type, Address, Label, Balance
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, coin=None):
         MyTreeWidget.__init__(self, parent, self.create_menu, [], 2)
         self.refresh_headers()
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)
@@ -50,6 +50,7 @@ class AddressList(MyTreeWidget):
         self.used_button.currentIndexChanged.connect(self.toggle_used)
         for t in [_('All'), _('Unused'), _('Funded'), _('Used')]:
             self.used_button.addItem(t)
+        self.coin = coin
 
     def get_toolbar_buttons(self):
         return QLabel(_("Filter:")), self.change_button, self.used_button
@@ -172,7 +173,7 @@ class AddressList(MyTreeWidget):
                 menu.addAction(_("Encrypt/decrypt message"), lambda: self.parent.encrypt_message(addr))
             if can_delete:
                 menu.addAction(_("Remove from wallet"), lambda: self.parent.remove_address(addr))
-            addr_URL = block_explorer_URL(self.config, 'addr', addr)
+            addr_URL = block_explorer_URL(self.config, 'addr', addr, self.coin)
             if addr_URL:
                 menu.addAction(_("View on block explorer"), lambda: webbrowser.open(addr_URL))
 

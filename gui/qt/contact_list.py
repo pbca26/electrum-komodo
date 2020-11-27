@@ -38,10 +38,11 @@ from .util import MyTreeWidget, import_meta_gui, export_meta_gui
 class ContactList(MyTreeWidget):
     filter_columns = [0, 1]  # Key, Value
 
-    def __init__(self, parent):
+    def __init__(self, parent, coin=None):
         MyTreeWidget.__init__(self, parent, self.create_menu, [_('Name'), _('Address')], 0, [0])
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.setSortingEnabled(True)
+        self.coin = coin
 
     def on_permit_edit(self, item, column):
         # openalias items shouldn't be editable
@@ -77,7 +78,7 @@ class ContactList(MyTreeWidget):
                 menu.addAction(_("Edit {}").format(column_title), lambda: self.editItem(item, column))
             menu.addAction(_("Pay to"), lambda: self.parent.payto_contacts(keys))
             menu.addAction(_("Delete"), lambda: self.parent.delete_contacts(keys))
-            URLs = [block_explorer_URL(self.config, 'addr', key) for key in filter(is_address, keys)]
+            URLs = [block_explorer_URL(self.config, 'addr', key, self.coin) for key in filter(is_address, keys)]
             if URLs:
                 menu.addAction(_("View on block explorer"), lambda: map(webbrowser.open, URLs))
 

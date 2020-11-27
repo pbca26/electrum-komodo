@@ -150,6 +150,7 @@ class InstallWizard(QDialog, MessageBoxMixin, BaseWizard):
         self.coin = None
 
     def run_and_get_wallet(self, get_wallet_from_daemon):
+        # TODO: add wallet dropdown selector
 
         vbox = QVBoxLayout()
         hbox = QHBoxLayout()
@@ -197,9 +198,7 @@ class InstallWizard(QDialog, MessageBoxMixin, BaseWizard):
                         print(value)
                         break
                     index += 1
-                print(x)
-                #print(nz)
-                #self.coin = 
+                print('selected coin', x)
             coin_combo.currentIndexChanged.connect(lambda x: onchange(x))
             hbox4.addWidget(coin_combo)
             hbox4.addStretch()

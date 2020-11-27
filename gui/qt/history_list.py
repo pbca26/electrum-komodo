@@ -327,7 +327,7 @@ class HistoryList(MyTreeWidget, AcceptFileDragDrop):
         else:
             column_title = self.headerItem().text(column)
             column_data = item.text(column)
-        tx_URL = block_explorer_URL(self.config, 'tx', tx_hash)
+        tx_URL = block_explorer_URL(self.config, 'tx', tx_hash, self.wallet.network.coin)
         height, conf, timestamp = self.wallet.get_tx_height(tx_hash)
         tx = self.wallet.transactions.get(tx_hash)
         is_relevant, is_mine, v, fee = self.wallet.get_wallet_delta(tx)
@@ -398,6 +398,7 @@ class HistoryList(MyTreeWidget, AcceptFileDragDrop):
             return
         self.parent.show_message(_("Your wallet history has been successfully exported."))
 
+    # TODO: interest field for KMD
     def do_export_history(self, wallet, fileName, is_csv):
         history = self.transactions
         lines = []

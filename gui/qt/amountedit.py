@@ -72,21 +72,21 @@ class AmountEdit(MyLineEdit):
     def setAmount(self, x):
         self.setText("%d"%x)
 
-
 class BTCAmountEdit(AmountEdit):
-
-    def __init__(self, decimal_point, is_int = False, parent=None):
+    # TODO: multicoin
+    def __init__(self, decimal_point, is_int = False, parent=None, coin=None):
         AmountEdit.__init__(self, self._base_unit, is_int, parent)
         self.decimal_point = decimal_point
+        self.coin = coin
 
     def _base_unit(self):
         p = self.decimal_point()
         if p == 8:
-            return constants.net.COIN
+            return self.coin or constants.net.COIN
         if p == 5:
-            return 'm' + constants.net.COIN
+            return 'm' + (self.coin or constants.net.COIN)
         if p == 2:
-            return 'u' + constants.net.COIN
+            return 'u' + (self.coin or constants.net.COIN)
         raise Exception('Unknown base unit')
 
     def get_amount(self):

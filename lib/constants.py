@@ -51,7 +51,7 @@ class BitcoinMainnet:
     CHECKPOINTS = read_json('checkpoints.json', [])
     COINS = read_json('coins.json', {})
     EXPLORERS = read_json('explorers.json', {})
-    COIN = 'RICK'
+    COIN = 'KMD'
 
     XPRV_HEADERS = {
         'standard':    0x0488ade4,  # xprv
