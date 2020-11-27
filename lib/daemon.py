@@ -167,7 +167,7 @@ class Daemon(DaemonThread):
         return True
 
     def start_await(self, coin):
-        print('start_await')
+        print('start_await', coin)
         print(self.config)
         self.network = Network(self.config, coin)
         self.network.start()
