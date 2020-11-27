@@ -101,6 +101,7 @@ def pick_random_server(hostmap = None, protocol = 't', exclude_set = set()):
     return random.choice(eligible) if eligible else None
 
 def pick_random_server_init(coin, protocol = 't', exclude_set = set()):
+    print(coin)
     hostmap = constants.net.DEFAULT_SERVERS[coin]
     eligible = list(set(filter_protocol(hostmap, protocol)) - exclude_set)
     return random.choice(eligible) if eligible else None
@@ -236,6 +237,7 @@ class Network(util.DaemonThread):
         self.restart_required = False
         self.num_blocks = -1
         self.coin = coin
+        self.sync_stalled_restart_required = False
 
     def pick_random_server(self, hostmap = None, protocol = 't', exclude_set = set()):
         if hostmap is None:
@@ -782,7 +784,8 @@ class Network(util.DaemonThread):
         # must use copy of values
         for interface in list(self.interfaces.values()):
             if interface.has_timed_out():
-                self.connection_down(interface.server)
+                self.print_error('connection timed out, maintain it further')
+                #self.connection_down(interface.server)
             elif interface.ping_required():
                 params = [ELECTRUM_VERSION, PROTOCOL_VERSION]
                 self.queue_request('server.version', params, interface)
@@ -827,6 +830,10 @@ class Network(util.DaemonThread):
         result = response.get('result')
         blockchain = interface.blockchain
         if result is None or error is not None:
+            if error == {'code': -101, 'message': 'excessive resource usage'}:	
+                # on average a non-stop sync of 240000 blocks in chunks are triggering "excessive resource usage" error	
+                # that's about 5+ months worth of blocks	
+                self.sync_stalled_restart_required = True
             interface.print_error(error or 'bad response')
             return
         index = height // CHUNK_LEN
