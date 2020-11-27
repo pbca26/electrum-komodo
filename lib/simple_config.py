@@ -3,6 +3,8 @@ import threading
 import time
 import os
 import stat
+import random
+import string
 
 from copy import deepcopy
 
@@ -34,6 +36,9 @@ def set_config(c):
     global config
     config = c
 
+
+def get_random_string(length):
+    return ''.join(random.choice(string.ascii_lowercase) for i in range(length))
 
 FINAL_CONFIG_VERSION = 2
 
@@ -248,7 +253,10 @@ class SimpleConfig(PrintError):
             os.mkdir(dirpath)
             os.chmod(dirpath, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
 
-        new_path = os.path.join(self.path, "wallets", "default_wallet")
+        if self.get('multi_coin') is False:
+          new_path = os.path.join(self.path, "wallets", "default_wallet")
+        else:
+          new_path = os.path.join(self.path, "wallets", get_random_string(8))
 
         # default path in pre 1.9 versions
         old_path = os.path.join(self.path, "electrum.dat")
