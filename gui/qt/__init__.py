@@ -198,6 +198,7 @@ class ElectrumGui:
         if not wallet:
             storage = WalletStorage(path, manual_upgrades=True)
             wizard = InstallWizard(self.config, self.app, self.plugins, storage)
+
             try:
                 wallet = wizard.run_and_get_wallet(self.daemon.get_wallet)
             except UserCancelled:
@@ -211,6 +212,7 @@ class ElectrumGui:
                 d.exec_()
                 return
             finally:
+                self.daemon.start_await(wizard.coin or 'KMD')
                 wizard.terminate()
             if not wallet:
                 return
@@ -267,7 +269,8 @@ class ElectrumGui:
             traceback.print_exc(file=sys.stdout)
             return
         self.timer.start()
-        self.config.open_last_wallet()
+        if self.config.get('multi_coin') == False:
+            self.config.open_last_wallet()
         path = self.config.get_wallet_path()
         if not self.start_new_window(path, self.config.get('url')):
             return
