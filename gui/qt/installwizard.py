@@ -3,13 +3,14 @@ import os
 import sys
 import threading
 import traceback
+import glob
 
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
 from electrum_zcash import Wallet, WalletStorage
-from electrum_zcash.util import UserCancelled, InvalidPassword
+from electrum_zcash.util import UserCancelled, InvalidPassword, user_dir
 from electrum_zcash.base_wizard import BaseWizard, HWD_SETUP_DECRYPT_WALLET
 from electrum_zcash.i18n import _
 
@@ -18,7 +19,6 @@ from .network_dialog import NetworkChoiceLayout
 from .util import *
 from .password_dialog import PasswordLayout, PasswordLayoutForHW, PW_NEW
 from electrum_zcash.constants import net
-
 
 class GoBack(Exception):
     pass
@@ -30,6 +30,15 @@ MSG_HW_STORAGE_ENCRYPTION = _("Set wallet file encryption.") + '\n'\
                           + _("It also contains your master public key that allows watching your addresses.") + '\n\n'\
                           + _("Note: If you enable this setting, you will need your hardware device to open your wallet.")
 
+def path_leaf(path):
+    head, tail = os.path.split(path)
+    return tail or os.path.basename(head)
+
+def get_existing_wallet_names():
+  existing_wallets_list = glob.glob(user_dir() + '/wallets/*')
+  wallets_list = {path_leaf(name): name for name in existing_wallets_list}
+
+  return wallets_list
 
 class CosignWidget(QWidget):
     size = 120
@@ -195,7 +204,6 @@ class InstallWizard(QDialog, MessageBoxMixin, BaseWizard):
                 for key, value in coins.items():
                     if index == x:
                         self.coin = value
-                        print(value)
                         break
                     index += 1
                 print('selected coin', x)
@@ -203,6 +211,39 @@ class InstallWizard(QDialog, MessageBoxMixin, BaseWizard):
             hbox4.addWidget(coin_combo)
             hbox4.addStretch()
             vbox.addLayout(hbox4)
+
+            # wallet selector
+            existing_wallets = get_existing_wallet_names()
+
+            if len(existing_wallets):
+              hbox5 = QHBoxLayout()
+              hbox5.addWidget(QLabel(_(' ')))
+              vbox.addLayout(hbox5)
+              
+              hbox6 = QHBoxLayout()
+              hbox6.addWidget(QLabel(_('Existing wallets') + ':'))
+              msg = (_('Existing wallets'))
+              existing_wallet_combo = QComboBox()
+              existing_wallet_combo.addItems(existing_wallets)
+              existing_wallet_combo.setCurrentIndex(0)
+              existing_wallet_combo.setFixedWidth(150)
+              def onchange_wallet(x):
+                  index = 0
+                  for key, value in existing_wallets.items():
+                      if index == x:
+                          self.fname = value
+                          break
+                      index += 1
+                  selected_wallet = list(existing_wallets.values())[index]
+                  print('selected wallet', selected_wallet)
+
+                  self.name_e.setText(selected_wallet)
+                  self.name_e.textChanged.connect(on_filename)
+              existing_wallet_combo.currentIndexChanged.connect(lambda x: onchange_wallet(x))
+
+              hbox6.addWidget(existing_wallet_combo)
+              hbox6.addStretch()
+              vbox.addLayout(hbox6)
 
         wallet_folder = os.path.dirname(self.storage.path)
 
@@ -259,8 +300,14 @@ class InstallWizard(QDialog, MessageBoxMixin, BaseWizard):
 
         button.clicked.connect(on_choose)
         self.name_e.textChanged.connect(on_filename)
-        n = os.path.basename(self.storage.path)
-        self.name_e.setText(n)
+
+        # FIXME
+        def set_wallet_name():
+          if self.config.get('multi_coin') == True and len(existing_wallets):
+            self.name_e.setText(list(existing_wallets.values())[0])
+            self.name_e.textChanged.connect(on_filename)
+        t = threading.Timer(0.1, set_wallet_name)
+        t.start()
 
         while True:
             if self.storage.file_exists() and not self.storage.is_encrypted():
