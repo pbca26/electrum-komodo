@@ -102,3 +102,7 @@ Android
 -------
 
 See `gui/kivy/Readme.txt` file.
+
+Komodo Multi Smart Chain Demo
+=================
+https://imgur.com/28OZAXv
