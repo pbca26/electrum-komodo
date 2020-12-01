@@ -234,7 +234,8 @@ class CoinChooserBase(PrintError):
         
         # kmd calc interest
         interest = 0
-        if constants.net.COIN == 'KMD':
+
+        if self.coin is not None and self.coin is 'KMD':
             self.print_error(tx.inputs())
             inputs = tx.inputs()
 
@@ -415,8 +416,10 @@ def get_name(config):
         kind = 'Privacy'
     return kind
 
-def get_coin_chooser(config):
+def get_coin_chooser(config, coin=None):
     klass = COIN_CHOOSERS[get_name(config)]
     coinchooser = klass()
     coinchooser.enable_output_value_rounding = config.get('coin_chooser_output_rounding', False)
+    if coin is not None:
+        coinchooser.coin = coin
     return coinchooser
