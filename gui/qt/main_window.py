@@ -666,11 +666,11 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
     def base_unit(self):
         assert self.decimal_point in [2, 5, 8]
         if self.decimal_point == 2:
-            return 'u' + constants.net.COIN
+            return 'u' + (self.network.coin or self.network.coin or constants.net.COIN)
         if self.decimal_point == 5:
-            return 'm' + constants.net.COIN
+            return 'm' + (self.network.coin or self.network.coin or constants.net.COIN)
         if self.decimal_point == 8:
-            return constants.net.COIN
+            return (self.network.coin or self.network.coin or constants.net.COIN)
         raise Exception('Unknown base unit')
 
     def connect_fields(self, window, btc_e, fiat_e, fee_e):
@@ -833,7 +833,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         grid.addWidget(self.receive_message_e, 1, 1, 1, -1)
         self.receive_message_e.textChanged.connect(self.update_receive_qr)
 
-        self.receive_amount_e = BTCAmountEdit(self.get_decimal_point)
+        self.receive_amount_e = BTCAmountEdit(self.get_decimal_point, False, None, self.network.coin)
         grid.addWidget(QLabel(_('Requested amount')), 2, 0)
         grid.addWidget(self.receive_amount_e, 2, 1)
         self.receive_amount_e.textChanged.connect(self.update_receive_qr)
@@ -1079,11 +1079,11 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         grid.setColumnStretch(3, 1)
 
         from .paytoedit import PayToEdit
-        self.amount_e = BTCAmountEdit(self.get_decimal_point)
+        self.amount_e = BTCAmountEdit(self.get_decimal_point, False, None, self.network.coin)
         self.payto_e = PayToEdit(self)
         self.payto_e.setFixedWidth(360);
         msg = _('Recipient of the funds.') + '\n\n'\
-              + _('You may enter a Zcash address, a label from your list of contacts (a list of completions will be proposed), or an alias (email-like address that forwards to a Zcash address)')
+              + _('You may enter a Komodo address, a label from your list of contacts (a list of completions will be proposed), or an alias (email-like address that forwards to a Zcash address)')
         payto_label = HelpLabel(_('Pay to'), msg)
         grid.addWidget(payto_label, 1, 0)
         grid.addWidget(self.payto_e, 1, 1, 1, -1)
@@ -1134,7 +1134,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         hbox.addStretch(1)
         grid.addLayout(hbox, 4, 4)
 
-        msg = _('Zcash transactions are in general not free. A transaction fee is paid by the sender of the funds.') + '\n\n'\
+        msg = _('Komodo transactions are in general not free. A transaction fee is paid by the sender of the funds.') + '\n\n'\
               + _('The amount of fee can be decided freely by the sender. However, transactions with low fees take more time to be processed.') + '\n\n'\
               + _('A suggested fee is automatically added to this field. You may override it. The suggested fee increases with the size of the transaction.')
         self.fee_e_label = HelpLabel(_('Fee'), msg)
@@ -1189,7 +1189,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         self.feerate_e.textEdited.connect(partial(on_fee_or_feerate, self.feerate_e, False))
         self.feerate_e.editingFinished.connect(partial(on_fee_or_feerate, self.feerate_e, True))
 
-        self.fee_e = BTCAmountEdit(self.get_decimal_point)
+        self.fee_e = BTCAmountEdit(self.get_decimal_point, False, None, self.network.coin)
         self.fee_e.textEdited.connect(partial(on_fee_or_feerate, self.fee_e, False))
         self.fee_e.editingFinished.connect(partial(on_fee_or_feerate, self.fee_e, True))
 
@@ -1812,7 +1812,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
 
     def create_addresses_tab(self):
         from .address_list import AddressList
-        self.address_list = l = AddressList(self)
+        self.address_list = l = AddressList(self, self.network.coin or constants.net.COIN)
         l.setObjectName("addresses_container")
         toolbar = l.create_toolbar(self.config)
         toolbar_shown = self.config.get('show_toolbar_addresses', False)
@@ -1826,7 +1826,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
 
     def create_contacts_tab(self):
         from .contact_list import ContactList
-        self.contact_list = l = ContactList(self)
+        self.contact_list = l = ContactList(self, self.network.coin or constants.net.COIN)
         return self.create_list_tab(l)
 
     def remove_address(self, addr):
@@ -2764,9 +2764,9 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         SSL_id_e.setReadOnly(True)
         id_widgets.append((SSL_id_label, SSL_id_e))
 
-        units = [constants.net.COIN, 'm' + constants.net.COIN, 'u' + constants.net.COIN]
+        units = [self.network.coin or constants.net.COIN, 'm' + (self.network.coin or constants.net.COIN), 'u' + (self.network.coin or constants.net.COIN)]
         msg = (_('Base unit of your wallet.')
-               + '\n1 ' + constants.net.COIN + ' = 1000 m' + constants.net.COIN + '. 1 m' + constants.net.COIN + ' = 1000 u' + constants.net.COIN + '.\n'
+               + '\n1 ' + (self.network.coin or constants.net.COIN) + ' = 1000 m' + (self.network.coin or constants.net.COIN) + '. 1 m' + (self.network.coin or constants.net.COIN) + ' = 1000 u' + (self.network.coin or constants.net.COIN) + '.\n'
                + _('This setting affects the Send tab, and all balance related fields.'))
         unit_label = HelpLabel(_('Base unit') + ':', msg)
         unit_combo = QComboBox()
@@ -2778,14 +2778,14 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
                 return
             edits = self.amount_e, self.fee_e, self.receive_amount_e
             amounts = [edit.get_amount() for edit in edits]
-            if unit_result == constants.net.COIN:
+            if unit_result == self.network.coin or constants.net.COIN:
                 self.decimal_point = 8
-            elif unit_result == 'm' + constants.net.COIN:
+            elif unit_result == 'm' + (self.network.coin or constants.net.COIN):
                 self.decimal_point = 5
-            elif unit_result == 'u' + constants.net.COIN:
+            elif unit_result == 'u' + (self.network.coin or constants.net.COIN):
                 self.decimal_point = 2
             else:
-                raise Exception('Unknown base unit')
+              raise Exception('Unknown base unit')
             self.config.set_key('decimal_point', self.decimal_point, True)
             nz.setMaximum(self.decimal_point)
             self.history_list.update()
@@ -2837,6 +2837,21 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         usechange_cb.stateChanged.connect(on_usechange)
         usechange_cb.setToolTip(_('Using change addresses makes it more difficult for other people to track your transactions.'))
         tx_widgets.append((usechange_cb, None))
+
+        fast_verify_val = self.config.get('fast_verify')
+        fast_verify_cb = QCheckBox(_('Use fast transaction verification (experimental)'))
+        fast_verify_cb.setChecked(fast_verify_val)
+        if not self.config.is_modifiable('fast_verify'): fast_verify_cb.setEnabled(False)
+        def on_fast_verify(x):
+            fast_verify_result = x == Qt.Checked
+            if fast_verify_val != fast_verify_result:
+                self.config.set_key('fast_verify', fast_verify_result)
+                multiple_cb.setEnabled(fast_verify_result)
+                if fast_verify_result == True:
+                    self.wallet.verifier.undo_verifications()
+        fast_verify_cb.stateChanged.connect(on_fast_verify)
+        fast_verify_cb.setToolTip(_('Fast transactions verify method.'))
+        tx_widgets.append((fast_verify_cb, None))
 
         def on_multiple(x):
             multiple = x == Qt.Checked
